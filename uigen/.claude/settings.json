@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm audit)",
+      "Bash(npm audit fix)",
+      "Bash(npm audit fix --force)",
+      "Bash(npm run test)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run setup)",
+      "Bash(npm run db:reset)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npx vitest run *)",
+      "Bash(npx vitest run)", "mcp__playwright"
+    ]
+  }
+}
