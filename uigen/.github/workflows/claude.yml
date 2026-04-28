@@ -1,5 +1,6 @@
 name: Claude Code
 
+# Top‑level permissions (required for issue_comment triggers)
 permissions:
   contents: write
   pull-requests: write
@@ -10,52 +11,74 @@ on:
     types: [created]
   pull_request_review_comment:
     types: [created]
-  issues:
-    types: [opened, assigned]
   pull_request_review:
     types: [submitted]
+  issues:
+    types: [opened]
 
 jobs:
   claude:
     name: Claude Code Action
     runs-on: ubuntu-latest
+
+    # Robust trigger logic:
+    # - supports @claude, @Claude, @CLAUDE
+    # - supports comments AND issue bodies
+    # - logs event types for debugging
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
+      (
+        github.event_name == 'issue_comment' &&
+        (
+          contains(github.event.comment.body, '@claude') ||
+          contains(github.event.comment.body, '@Claude') ||
+          contains(github.event.comment.body, '@CLAUDE')
+        )
+      ) ||
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        (
+          contains(github.event.comment.body, '@claude') ||
+          contains(github.event.comment.body, '@Claude') ||
+          contains(github.event.comment.body, '@CLAUDE')
+        )
+      ) ||
+      (
+        github.event_name == 'pull_request_review' &&
+        (
+          contains(github.event.review.body, '@claude') ||
+          contains(github.event.review.body, '@Claude') ||
+          contains(github.event.review.body, '@CLAUDE')
+        )
+      ) ||
+      (
+        github.event_name == 'issues' &&
+        (
+          contains(github.event.issue.body, '@claude') ||
+          contains(github.event.issue.body, '@Claude') ||
+          contains(github.event.issue.body, '@CLAUDE')
+        )
+      )
+
     steps:
+      # Debugging: print event info so you can see EXACTLY why it triggered
+      - name: Debug Event Payload
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Issue body: ${{ github.event.issue.body }}"
+          echo "Review body: ${{ github.event.review.body }}"
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Project Setup
-        run: |
-          npm run setup
-          npm run dev:daemon    
+
+      # Claude Action (no npm install, no dev server — GitHub runners don’t need it)
       - uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           custom_instructions: |
-            The project is already set up with all dependencies installed. The server is already running at localhost:3000. 
-            Logs from it are being written to logs.txt
-            If needed, you can query the db with 'sqlite3' cli. If needed, use the mcp__playwright set of tools to launch 
-            a browser and interact with the app.
-          mcp_config: |
-            {
-              "mcpServers": {
-                "playwright": {
-                  "command": "npx",
-                  "args": [
-                    "@playwright/mcp@latest",
-                    "--allowed-origins",
-                    "localhost:3000;cdn.tailwindcss.com;esm.sh"
-                  ]
-                }
-              }
-            }
-          allowed_tools: "Bash(npm:*), Bash(sqlite3:*), mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_fill, mcp__playwright__browser_launch"
+            You are operating inside a GitHub Actions environment.
+            Only run tools when necessary. Keep responses concise.
+          allowed_tools: "Bash(*), mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_fill, mcp__playwright__browser_launch"
